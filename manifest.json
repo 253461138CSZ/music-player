@@ -1,0 +1,16 @@
+{
+    "name": "本地音乐播放器",
+    "short_name": "本地音乐",
+    "description": "支持熄屏播放的本地音乐播放器",
+    "start_url": "index.html",
+    "display": "standalone",
+    "background_color": "#1a1a2e",
+    "theme_color": "#e94560",
+    "icons": [
+        {
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23e94560'/%3E%3Ctext x='256' y='340' font-size='280' text-anchor='middle' font-family='sans-serif' fill='white'%3E🎵%3C/text%3E%3C/svg%3E",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}
