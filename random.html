@@ -10,7 +10,6 @@
     <link rel="manifest" href="manifest.json">
     <title>随机音乐播放器</title>
     <style>
-        /* 样式与之前相同，但微调按钮布局 */
         * {
             margin: 0;
             padding: 0;
@@ -99,6 +98,9 @@
             cursor: pointer;
             transition: transform 0.2s;
             box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
         }
 
         .file-input-wrapper label:active {
@@ -131,6 +133,8 @@
             color: #fff;
             cursor: pointer;
             transition: transform 0.2s, opacity 0.2s;
+            flex: 1;
+            min-width: 100px;
         }
 
         .action-buttons button:active {
@@ -148,17 +152,9 @@
             box-shadow: 0 4px 15px rgba(245, 166, 35, 0.4);
         }
 
-        .btn-shuffle:active:not(:disabled) {
-            transform: scale(0.95);
-        }
-
         .btn-clear {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn-clear:active:not(:disabled) {
-            transform: scale(0.95);
         }
 
         .stats {
@@ -254,6 +250,12 @@
         .empty-playlist .icon {
             font-size: 40px;
             margin-bottom: 10px;
+        }
+
+        .empty-playlist .hint {
+            font-size: 11px;
+            color: #444;
+            margin-top: 4px;
         }
 
         .player-controls {
@@ -385,7 +387,7 @@
     <div class="container">
         <div class="header">
             <h1>🔀 随机音乐</h1>
-            <p>添加歌曲或文件夹 · 一键随机打乱</p>
+            <p>选择歌曲 · 一键随机打乱</p>
         </div>
 
         <div class="nav-links">
@@ -393,15 +395,18 @@
             <a href="random.html" class="active">🔀 随机模式</a>
         </div>
 
-        <!-- 文件选择 - 改进版：明确区分文件和文件夹 -->
+        <!-- 文件选择 - 手机优化：两个按钮都支持多选 -->
         <div class="file-input-wrapper">
-            <label for="fileInput">🎵 添加文件</label>
+            <label for="fileInput">🎵 选择歌曲</label>
             <input type="file" id="fileInput" multiple accept="audio/*">
-            <label for="folderInput" class="folder-btn">📁 添加文件夹</label>
-            <input type="file" id="folderInput" webkitdirectory accept="audio/*">
+            <label for="folderInput" class="folder-btn">📁 从文件夹添加</label>
+            <input type="file" id="folderInput" multiple accept="audio/*">
         </div>
 
-        <!-- 操作按钮 -->
+        <div style="text-align:center;font-size:11px;color:#555;margin-top:-8px;margin-bottom:12px;">
+            💡 在文件管理器中长按可多选
+        </div>
+
         <div class="action-buttons">
             <button class="btn-shuffle" id="shuffleBtn" disabled>🔀 随机打乱</button>
             <button class="btn-clear" id="clearBtn" disabled>🗑️ 清空列表</button>
@@ -409,16 +414,15 @@
 
         <div class="stats" id="stats">共 <span id="songCount">0</span> 首歌曲</div>
 
-        <!-- 播放列表 -->
         <div class="playlist" id="playlist">
             <div class="empty-playlist">
                 <div class="icon">📂</div>
-                <p>点击「添加文件」选择歌曲（可多选）</p>
-                <p style="font-size:11px;color:#444;margin-top:4px;">或点击「添加文件夹」导入整个目录</p>
+                <p>点击「选择歌曲」添加音乐</p>
+                <p class="hint">支持 MP3 / M4A / AAC / WAV 等格式</p>
+                <p class="hint">在手机文件管理器中可长按多选</p>
             </div>
         </div>
 
-        <!-- 播放控制 -->
         <div class="player-controls">
             <div class="current-track">
                 <div id="currentTrackName" class="track-empty">未选择歌曲</div>
@@ -530,8 +534,6 @@
             // ===== 核心逻辑 =====
             function addFiles(files) {
                 let addedCount = 0;
-                // 如果是文件夹，webkitdirectory 返回的 FileList 已经包含所有子文件
-                // 我们只需过滤音频格式
                 for (const file of files) {
                     if (!file.type.startsWith('audio/')) continue;
                     const exists = playlist.some(item =>
@@ -546,10 +548,7 @@
                         addedCount++;
                     }
                 }
-                if (addedCount === 0) {
-                    // 简单提示（可以用轻提示，这里忽略）
-                    return;
-                }
+                if (addedCount === 0) return;
                 updateStatsAndUI();
                 if (currentIndex === -1 && playlist.length > 0) {
                     playByIndex(0);
@@ -644,8 +643,9 @@
                     playlistEl.innerHTML = `
                     <div class="empty-playlist">
                         <div class="icon">📂</div>
-                        <p>点击「添加文件」选择歌曲（可多选）</p>
-                        <p style="font-size:11px;color:#444;margin-top:4px;">或点击「添加文件夹」导入整个目录</p>
+                        <p>点击「选择歌曲」添加音乐</p>
+                        <p class="hint">支持 MP3 / M4A / AAC / WAV 等格式</p>
+                        <p class="hint">在手机文件管理器中可长按多选</p>
                     </div>
                 `;
                     return;
@@ -734,9 +734,7 @@
                 songCount.textContent = playlist.length;
             }
 
-            // ===== 事件绑定 =====
-
-            // 添加文件（可多选）
+            // ===== 事件绑定 - 两个按钮都使用多选 =====
             fileInput.addEventListener('change', function (e) {
                 if (this.files && this.files.length > 0) {
                     addFiles(this.files);
@@ -744,7 +742,6 @@
                 this.value = '';
             });
 
-            // 添加文件夹（使用 webkitdirectory，会自动包含子目录）
             folderInput.addEventListener('change', function (e) {
                 if (this.files && this.files.length > 0) {
                     addFiles(this.files);
@@ -752,17 +749,14 @@
                 this.value = '';
             });
 
-            // 随机打乱
             shuffleBtn.addEventListener('click', function () {
                 shufflePlaylist();
             });
 
-            // 清空列表
             clearBtn.addEventListener('click', function () {
                 clearPlaylist();
             });
 
-            // 播放控制
             playBtn.addEventListener('click', togglePlayPause);
             prevBtn.addEventListener('click', playPrev);
             nextBtn.addEventListener('click', playNext);
