@@ -400,11 +400,12 @@
             <label for="fileInput">🎵 选择歌曲</label>
             <input type="file" id="fileInput" multiple accept="audio/*">
             <label for="folderInput" class="folder-btn">📁 从文件夹添加</label>
-            <input type="file" id="folderInput" multiple accept="audio/*">
+            <input type="file" id="folderInput" webkitdirectory directory accept="audio/*">
         </div>
 
         <div style="text-align:center;font-size:11px;color:#555;margin-top:-8px;margin-bottom:12px;">
-            💡 在文件管理器中长按可多选
+            💡 安卓：选择歌曲可长按多选；文件夹按钮读取整个目录
+            <br>iOS：系统限制无法读取文件夹，仅支持多选单首歌曲
         </div>
 
         <div class="action-buttons">
