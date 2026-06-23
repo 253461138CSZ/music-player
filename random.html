@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="随机音乐">
+    <link rel="manifest" href="manifest.json">
+    <title>随机音乐播放器</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#1a1a2e; color:#fff; min-height:100vh; display:flex; justify-content:center; align-items:center; padding:16px; }
+        .container { width:100%; max-width:420px; background:linear-gradient(145deg,#16213e,#0f3460); border-radius:24px; padding:24px 20px 32px; box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+        .header { text-align:center; margin-bottom:20px; }
+        .header h1 { font-size:22px; font-weight:600; background:linear-gradient(135deg,#e94560,#f5a623); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .header p { font-size:13px; color:#aaa; margin-top:4px; }
+        .nav-links { text-align:center; margin-bottom:16px; }
+        .nav-links a { color:#e94560; text-decoration:none; font-size:14px; margin:0 12px; padding:4px 8px; border-radius:4px; transition:background 0.2s; }
+        .nav-links a:active { background:rgba(233,69,96,0.2); }
+        .nav-links a.active { color:#f5a623; border-bottom:2px solid #f5a623; }
+
+        .file-input-wrapper { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+        .file-input-wrapper label { display:inline-block; padding:12px 20px; background:linear-gradient(135deg,#e94560,#c23152); border-radius:50px; font-size:14px; font-weight:500; color:#fff; cursor:pointer; transition:transform 0.2s; box-shadow:0 4px 15px rgba(233,69,96,0.4); }
+        .file-input-wrapper label:active { transform:scale(0.95); }
+        .file-input-wrapper input[type="file"] { display:none; }
+        .file-input-wrapper .folder-btn { background:linear-gradient(135deg,#4a6cf7,#3b5de7); box-shadow:0 4px 15px rgba(74,108,247,0.4); }
+
+        .action-buttons { display:flex; justify-content:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+        .action-buttons button { padding:10px 24px; border:none; border-radius:50px; font-size:14px; font-weight:500; color:#fff; cursor:pointer; transition:transform 0.2s, opacity 0.2s; }
+        .action-buttons button:active { transform:scale(0.95); }
+        .action-buttons button:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+        .btn-shuffle { background:linear-gradient(135deg,#f5a623,#e8900e); box-shadow:0 4px 15px rgba(245,166,35,0.4); }
+        .btn-shuffle:active:not(:disabled) { transform:scale(0.95); }
+        .btn-clear { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); }
+        .btn-clear:active:not(:disabled) { transform:scale(0.95); }
+
+        .stats { text-align:center; font-size:12px; color:#888; margin-bottom:12px; }
+        .stats span { color:#e94560; font-weight:600; }
+
+        .playlist { max-height:280px; overflow-y:auto; margin-bottom:16px; border-radius:12px; background:rgba(255,255,255,0.05); padding:4px 0; }
+        .playlist::-webkit-scrollbar { width:4px; }
+        .playlist::-webkit-scrollbar-thumb { background:#e94560; border-radius:4px; }
+        .playlist-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:background 0.2s; border-radius:8px; }
+        .playlist-item:active { background:rgba(233,69,96,0.2); }
+        .playlist-item.active { background:rgba(233,69,96,0.25); border-left:3px solid #e94560; }
+        .playlist-item .info { flex:1; min-width:0; }
+        .playlist-item .info .name { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .playlist-item .info .size { font-size:11px; color:#666; margin-top:1px; }
+        .playlist-item .index-num { font-size:11px; color:#555; margin-right:10px; min-width:24px; text-align:right; }
+        .playlist-item .status-icon { font-size:16px; margin-left:8px; color:#e94560; }
+        .empty-playlist { text-align:center; padding:30px 16px; color:#555; font-size:13px; }
+        .empty-playlist .icon { font-size:40px; margin-bottom:10px; }
+
+        .player-controls { background:rgba(255,255,255,0.06); border-radius:16px; padding:14px; }
+        .current-track { text-align:center; margin-bottom:10px; }
+        .current-track .track-name { font-size:15px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .current-track .track-empty { color:#666; font-size:13px; }
+        .progress-bar { width:100%; height:3px; background:rgba(255,255,255,0.15); border-radius:4px; margin:8px 0 10px; position:relative; cursor:pointer; }
+        .progress-bar .progress-fill { height:100%; background:linear-gradient(90deg,#e94560,#f5a623); border-radius:4px; width:0%; transition:width 0.1s linear; }
+        .time-display { display:flex; justify-content:space-between; font-size:11px; color:#777; margin-top:-4px; margin-bottom:10px; }
+        .control-buttons { display:flex; justify-content:center; align-items:center; gap:24px; }
+        .control-buttons button { background:none; border:none; color:#fff; font-size:24px; cursor:pointer; padding:4px; transition:transform 0.15s; opacity:0.8; }
+        .control-buttons button:active { transform:scale(0.85); }
+        .control-buttons button:disabled { opacity:0.3; cursor:not-allowed; }
+        .control-buttons .play-btn { width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#e94560,#c23152); font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(233,69,96,0.4); opacity:1; }
+        .control-buttons .play-btn:active { transform:scale(0.9); }
+        .control-buttons .play-btn:disabled { opacity:0.4; box-shadow:none; }
+        .pwa-badge-wrap { text-align:center; margin-top:12px; }
+        .pwa-badge { display:inline-block; font-size:10px; color:#4CAF50; background:rgba(76,175,80,0.15); padding:4px 12px; border-radius:20px; }
+        .footer-info { text-align:center; font-size:10px; color:#444; margin-top:12px; letter-spacing:0.5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🔀 随机音乐</h1>
+        <p>添加文件夹 · 一键随机打乱</p>
+    </div>
+
+    <div class="nav-links">
+        <a href="index.html">📋 列表模式</a>
+        <a href="random.html" class="active">🔀 随机模式</a>
+    </div>
+
+    <!-- 文件选择 -->
+    <div class="file-input-wrapper">
+        <label for="fileInput" class="folder-btn">📁 添加文件夹</label>
+        <input type="file" id="fileInput" webkitdirectory multiple accept="audio/*">
+        <label for="fileInputSingle">🎵 添加文件</label>
+        <input type="file" id="fileInputSingle" multiple accept="audio/*">
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+        <button class="btn-shuffle" id="shuffleBtn" disabled>🔀 随机打乱</button>
+        <button class="btn-clear" id="clearBtn" disabled>🗑️ 清空列表</button>
+    </div>
+
+    <div class="stats" id="stats">共 <span id="songCount">0</span> 首歌曲</div>
+
+    <!-- 播放列表 -->
+    <div class="playlist" id="playlist">
+        <div class="empty-playlist">
+            <div class="icon">📂</div>
+            <p>点击「添加文件夹」选择音乐目录</p>
+            <p style="font-size:11px;color:#444;margin-top:4px;">支持 MP3 / M4A / AAC / WAV 等格式</p>
+        </div>
+    </div>
+
+    <!-- 播放控制 -->
+    <div class="player-controls">
+        <div class="current-track">
+            <div id="currentTrackName" class="track-empty">未选择歌曲</div>
+        </div>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="time-display">
+            <span id="currentTime">0:00</span>
+            <span id="totalTime">0:00</span>
+        </div>
+
+        <div class="control-buttons">
+            <button id="prevBtn" disabled>⏮</button>
+            <button id="playBtn" class="play-btn" disabled>▶</button>
+            <button id="nextBtn" disabled>⏭</button>
+        </div>
+    </div>
+
+    <div class="pwa-badge-wrap">
+        <div class="pwa-badge">📱 支持熄屏播放 · 请添加到主屏幕</div>
+    </div>
+    <div class="footer-info">真正的随机 · 每次打乱结果都不同</div>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        // DOM 元素
+        const fileInput = document.getElementById('fileInput');
+        const fileInputSingle = document.getElementById('fileInputSingle');
+        const playlistEl = document.getElementById('playlist');
+        const playBtn = document.getElementById('playBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const progressFill = document.getElementById('progressFill');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const currentTrackName = document.getElementById('currentTrackName');
+        const progressBar = document.getElementById('progressBar');
+        const songCount = document.getElementById('songCount');
+
+        // 状态
+        let audio = new Audio();
+        let playlist = [];
+        let currentIndex = -1;
+        let isPlaying = false;
+        let isDragging = false;
+        let audioContext = null;
+
+        // ===== 音频上下文（用于熄屏播放） =====
+        function ensureAudioContext() {
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                } catch (e) {
+                    console.warn('AudioContext 不可用');
+                }
+            }
+            return audioContext;
+        }
+
+        function activateAudioContext() {
+            const ctx = ensureAudioContext();
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().catch(err => console.warn('激活 AudioContext 失败:', err));
+            }
+        }
+
+        // ===== 工具函数 =====
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds === Infinity) return '0:00';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + 'B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ===== 真正的随机打乱（Fisher-Yates 洗牌算法） =====
+        function shuffleArray(arr) {
+            // 使用当前时间 + 随机数作为种子，确保每次不同
+            const seed = Date.now() + Math.random() * 100000;
+            let random = seed;
+            for (let i = arr.length - 1; i > 0; i--) {
+                // 用线性同余生成器产生伪随机数，每次不同
+                random = (random * 9301 + 49297) % 233280;
+                const j = Math.floor((random / 233280) * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // ===== 核心逻辑 =====
+        function addFiles(files) {
+            let addedCount = 0;
+            for (const file of files) {
+                if (!file.type.startsWith('audio/')) continue;
+                const exists = playlist.some(item =>
+                    item.name === file.name && item.size === formatFileSize(file.size)
+                );
+                if (!exists) {
+                    playlist.push({
+                        name: file.name,
+                        size: formatFileSize(file.size),
+                        file: file
+                    });
+                    addedCount++;
+                }
+            }
+            if (addedCount === 0) {
+                // 简单提示
+                return;
+            }
+            updateStatsAndUI();
+            if (currentIndex === -1 && playlist.length > 0) {
+                playByIndex(0);
+            } else {
+                renderPlaylist();
+                updateUI();
+            }
+        }
+
+        function shufflePlaylist() {
+            if (playlist.length <= 1) {
+                // 少于2首不需要打乱
+                return;
+            }
+
+            // 保存当前播放的歌曲（如果有）
+            const currentFile = currentIndex !== -1 ? playlist[currentIndex] : null;
+
+            // 使用真正的随机算法打乱
+            shuffleArray(playlist);
+
+            // 更新当前索引
+            if (currentFile) {
+                const newIndex = playlist.findIndex(item => item.file === currentFile.file);
+                currentIndex = newIndex !== -1 ? newIndex : 0;
+            } else {
+                currentIndex = -1;
+            }
+
+            // 如果当前播放索引无效，设为0
+            if (currentIndex >= playlist.length) {
+                currentIndex = 0;
+            }
+
+            renderPlaylist();
+            updateUI();
+            // 播放当前歌曲
+            if (currentIndex !== -1 && playlist.length > 0) {
+                playByIndex(currentIndex);
+            }
+        }
+
+        function playByIndex(index) {
+            if (index < 0 || index >= playlist.length) return;
+            if (index === currentIndex && !audio.paused) return;
+            activateAudioContext();
+            currentIndex = index;
+            const file = playlist[index].file;
+            const url = URL.createObjectURL(file);
+            audio.src = url;
+            audio.load();
+            audio.play().then(() => {
+                isPlaying = true;
+                updateUI();
+            }).catch(err => {
+                console.warn('播放失败:', err);
+                isPlaying = false;
+                updateUI();
+            });
+            updateUI();
+        }
+
+        function togglePlayPause() {
+            if (currentIndex === -1 || playlist.length === 0) return;
+            activateAudioContext();
+            if (audio.paused) {
+                audio.play().then(() => {
+                    isPlaying = true;
+                    updateUI();
+                }).catch(err => {
+                    console.warn('播放失败:', err);
+                });
+            } else {
+                audio.pause();
+                isPlaying = false;
+                updateUI();
+            }
+        }
+
+        function playPrev() {
+            if (playlist.length === 0) return;
+            const newIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+            playByIndex(newIndex);
+        }
+
+        function playNext() {
+            if (playlist.length === 0) return;
+            const newIndex = (currentIndex + 1) % playlist.length;
+            playByIndex(newIndex);
+        }
+
+        function clearPlaylist() {
+            if (playlist.length === 0) return;
+            audio.pause();
+            audio.src = '';
+            isPlaying = false;
+            currentIndex = -1;
+            playlist = [];
+            renderPlaylist();
+            updateUI();
+            updateStatsAndUI();
+        }
+
+        // ===== UI 渲染 =====
+        function renderPlaylist() {
+            if (playlist.length === 0) {
+                playlistEl.innerHTML = `
+                    <div class="empty-playlist">
+                        <div class="icon">📂</div>
+                        <p>点击「添加文件夹」选择音乐目录</p>
+                        <p style="font-size:11px;color:#444;margin-top:4px;">支持 MP3 / M4A / AAC / WAV 等格式</p>
+                    </div>
+                `;
+                return;
+            }
+            let html = '';
+            playlist.forEach((item, index) => {
+                const isActive = (index === currentIndex);
+                const icon = isActive ? (isPlaying ? '▶' : '⏸') : '';
+                html += `
+                    <div class="playlist-item ${isActive ? 'active' : ''}" data-index="${index}">
+                        <span class="index-num">${index + 1}</span>
+                        <div class="info">
+                            <div class="name">${escapeHtml(item.name)}</div>
+                            <div class="size">${item.size}</div>
+                        </div>
+                        ${icon ? `<span class="status-icon">${icon}</span>` : ''}
+                    </div>
+                `;
+            });
+            playlistEl.innerHTML = html;
+            document.querySelectorAll('.playlist-item').forEach(el => {
+                el.addEventListener('click', function() {
+                    const idx = parseInt(this.dataset.index, 10);
+                    if (!isNaN(idx) && idx !== currentIndex) {
+                        playByIndex(idx);
+                    } else if (idx === currentIndex) {
+                        togglePlayPause();
+                    }
+                });
+            });
+            updateControls();
+        }
+
+        function updateUI() {
+            if (currentIndex === -1 || playlist.length === 0) {
+                playBtn.disabled = true;
+                playBtn.textContent = '▶';
+            } else {
+                playBtn.disabled = false;
+                playBtn.textContent = isPlaying ? '⏸' : '▶';
+            }
+            prevBtn.disabled = (playlist.length <= 1);
+            nextBtn.disabled = (playlist.length <= 1);
+            shuffleBtn.disabled = (playlist.length <= 1);
+            clearBtn.disabled = (playlist.length === 0);
+
+            if (currentIndex !== -1 && playlist[currentIndex]) {
+                currentTrackName.textContent = playlist[currentIndex].name;
+                currentTrackName.className = 'track-name';
+            } else {
+                currentTrackName.textContent = '未选择歌曲';
+                currentTrackName.className = 'track-empty';
+            }
+
+            if (!isDragging) {
+                if (audio.duration && !isNaN(audio.duration)) {
+                    const percent = (audio.currentTime / audio.duration) * 100;
+                    progressFill.style.width = Math.min(percent, 100) + '%';
+                    currentTimeEl.textContent = formatTime(audio.currentTime);
+                    totalTimeEl.textContent = formatTime(audio.duration);
+                } else {
+                    progressFill.style.width = '0%';
+                    currentTimeEl.textContent = '0:00';
+                    totalTimeEl.textContent = '0:00';
+                }
+            }
+            renderPlaylist();
+            updateStatsAndUI();
+        }
+
+        function updateControls() {
+            if (currentIndex === -1 || playlist.length === 0) {
+                playBtn.disabled = true;
+                playBtn.textContent = '▶';
+            } else {
+                playBtn.disabled = false;
+                playBtn.textContent = isPlaying ? '⏸' : '▶';
+            }
+            prevBtn.disabled = (playlist.length <= 1);
+            nextBtn.disabled = (playlist.length <= 1);
+            shuffleBtn.disabled = (playlist.length <= 1);
+            clearBtn.disabled = (playlist.length === 0);
+        }
+
+        function updateStatsAndUI() {
+            songCount.textContent = playlist.length;
+        }
+
+        // ===== 事件绑定 =====
+
+        // 添加文件夹
+        fileInput.addEventListener('change', function(e) {
+            if (this.files && this.files.length > 0) {
+                addFiles(this.files);
+            }
+            this.value = '';
+        });
+
+        // 添加单个文件
+        fileInputSingle.addEventListener('change', function(e) {
+            if (this.files && this.files.length > 0) {
+                addFiles(this.files);
+            }
+            this.value = '';
+        });
+
+        // 随机打乱
+        shuffleBtn.addEventListener('click', function() {
+            shufflePlaylist();
+        });
+
+        // 清空列表
+        clearBtn.addEventListener('click', function() {
+            clearPlaylist();
+        });
+
+        // 播放控制
+        playBtn.addEventListener('click', togglePlayPause);
+        prevBtn.addEventListener('click', playPrev);
+        nextBtn.addEventListener('click', playNext);
+
+        // ===== 音频事件 =====
+        audio.addEventListener('timeupdate', function() {
+            if (!isDragging) updateUI();
+        });
+
+        audio.addEventListener('ended', function() {
+            if (playlist.length > 1) {
+                playNext();
+            } else {
+                isPlaying = false;
+                updateUI();
+            }
+        });
+
+        audio.addEventListener('error', function(e) {
+            console.warn('音频错误:', e);
+            if (playlist.length > 1) {
+                playNext();
+            } else {
+                isPlaying = false;
+                updateUI();
+            }
+        });
+
+        // ===== 进度条拖拽 =====
+        progressBar.addEventListener('mousedown', function(e) {
+            if (!audio.duration || isNaN(audio.duration)) return;
+            isDragging = true;
+            setProgressFromEvent(e);
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+        });
+
+        progressBar.addEventListener('touchstart', function(e) {
+            if (!audio.duration || isNaN(audio.duration)) return;
+            isDragging = true;
+            setProgressFromEvent(e);
+            document.addEventListener('touchmove', onDragMoveTouch, { passive: false });
+            document.addEventListener('touchend', onDragEndTouch, { passive: false });
+        });
+
+        function onDragMove(e) { setProgressFromEvent(e); }
+        function onDragMoveTouch(e) { e.preventDefault(); setProgressFromEvent(e); }
+        function onDragEnd() {
+            isDragging = false;
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('mouseup', onDragEnd);
+            if (audio.duration && !isNaN(audio.duration)) {
+                audio.currentTime = (parseFloat(progressFill.style.width) / 100) * audio.duration;
+            }
+            updateUI();
+        }
+        function onDragEndTouch() {
+            isDragging = false;
+            document.removeEventListener('touchmove', onDragMoveTouch);
+            document.removeEventListener('touchend', onDragEndTouch);
+            if (audio.duration && !isNaN(audio.duration)) {
+                audio.currentTime = (parseFloat(progressFill.style.width) / 100) * audio.duration;
+            }
+            updateUI();
+        }
+
+        function setProgressFromEvent(e) {
+            const rect = progressBar.getBoundingClientRect();
+            let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            if (clientX === undefined) return;
+            let x = (clientX - rect.left) / rect.width;
+            x = Math.max(0, Math.min(1, x));
+            progressFill.style.width = (x * 100) + '%';
+            if (audio.duration && !isNaN(audio.duration)) {
+                currentTimeEl.textContent = formatTime(x * audio.duration);
+            }
+        }
+
+        // ===== 激活音频上下文 =====
+        document.addEventListener('click', function() {
+            activateAudioContext();
+        }, { once: false });
+
+        // ===== 初始化 =====
+        updateUI();
+
+        window.addEventListener('beforeunload', function() {
+            audio.pause();
+            audio.src = '';
+        });
+
+    })();
+</script>
+</body>
+</html>
